@@ -1,0 +1,112 @@
+<!-- Made by Meterel -->
+<!-- https://github.com/Meterel/stars-bg -->
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Stars</title>
+    </head>
+
+    <body style="margin: 0px;overflow: clip;user-select: none;"></body>
+
+    <script type="importmap">
+        {
+            "imports":{
+                "three":"./three js/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        'use strict';
+        import * as THREE from "three";
+        import {UnrealBloomPass} from "./three js/postprocessing/UnrealBloomPass.js";
+        import {EffectComposer} from './three js/postprocessing/EffectComposer.js';
+        import {RenderPass} from './three js/postprocessing/RenderPass.js';
+
+        const scene=new THREE.Scene();
+        const renderer=new THREE.WebGLRenderer({antialias:true,precision:"lowp"});
+        document.body.appendChild(renderer.domElement);
+        const camera=new THREE.PerspectiveCamera(90,window.innerWidth/window.innerHeight);
+        const composer=new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene,camera));
+        composer.addPass(new UnrealBloomPass());
+
+
+        const spread=750;
+        const mesh=new THREE.Points(
+            new THREE.BufferGeometry(),
+            new THREE.ShaderMaterial({
+                uniforms:{time:{value:1}},
+                fragmentShader:`
+                    varying float pointsize;
+                    varying vec3 v_position;
+
+                    float rand(vec2 co){
+                        return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+                    }
+
+                    void main(){
+                        if(distance(gl_PointCoord,vec2(.5))>.5) discard;
+                        float gradient=rand(vec2(rand(v_position.xy),v_position.z));
+                        gl_FragColor=vec4((vec3(1.,0.,1.)*gradient+vec3(0.,1.,1.)*(1.-gradient))*min(1.,pointsize),1.);
+                    }
+                `,
+                vertexShader:`
+                    uniform float time;
+                    varying float pointsize;
+                    varying vec3 v_position;
+                    void main() {
+                        vec3 pos=position+vec3(0.,0.,time)*50.;
+                        pos.z=mod(pos.z+`+spread/2+`.,`+spread+`.)-`+spread/2+`.;
+                        v_position=position;
+
+
+                        vec4 mvPosition = modelViewMatrix * vec4( pos , 1.0 );
+
+                        gl_PointSize = 300.0 / - mvPosition.z;
+                        pointsize=gl_PointSize;
+
+                        gl_Position = projectionMatrix * mvPosition;
+
+                    }
+        `}));
+        const vertices=new Float32Array(300_000); //length must be divisible by 3
+        for(let x=0;x<vertices.length;x++) vertices[x]=THREE.MathUtils.randFloatSpread(spread);
+        mesh.geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+        scene.add(mesh);
+
+
+        addEventListener("mousemove",function(e){
+            targetrot.y=-(e.clientX-window.innerWidth/2)/window.innerWidth;
+            targetrot.x=-(e.clientY-window.innerHeight/2)/window.innerHeight;
+        });
+
+        onresize=function(){
+            camera.aspect=window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth,window.innerHeight);
+            composer.setSize(window.innerWidth,window.innerHeight);
+        };
+        onresize();
+
+        const targetrot=new THREE.Vector2();
+        let then=0;
+        function process(now){
+            requestAnimationFrame(process);
+            if(then==now) return;
+            const delta=(now-then)/1000;
+            then=now;
+
+            const lerp=Math.min(delta,1);
+            camera.rotation.x=camera.rotation.x*(1-lerp)+targetrot.x*lerp;
+            camera.rotation.y=camera.rotation.y*(1-lerp)+targetrot.y*lerp;
+
+            mesh.material.uniforms.time.value+=delta;
+
+            composer.render(delta);
+        }
+        requestAnimationFrame(process);
+    </script>
+</html>
