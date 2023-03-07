@@ -78,10 +78,15 @@
         scene.add(mesh);
 
 
-        addEventListener("mousemove",function(e){
+        const targetrot=new THREE.Vector2();
+        function rotate_camera(e){
+            if(e.type==="touchmove") e=e.touches[0];
             targetrot.y=-(e.clientX-window.innerWidth/2)/window.innerWidth;
             targetrot.x=-(e.clientY-window.innerHeight/2)/window.innerHeight;
-        });
+        }
+
+        addEventListener("mousemove",rotate_camera);
+        addEventListener("touchmove",rotate_camera);
 
         onresize=function(){
             camera.aspect=window.innerWidth/window.innerHeight;
@@ -91,11 +96,10 @@
         };
         onresize();
 
-        const targetrot=new THREE.Vector2();
         let then=0;
         function process(now){
             requestAnimationFrame(process);
-            if(then==now) return;
+            if(then===now) return;
             const delta=(now-then)/1000;
             then=now;
 
